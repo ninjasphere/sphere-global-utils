@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+#
+# sphere-reset
+#   - stops the spheramid service
+#   - flushes the redis database
+#   - clears the cloud
+#   - resets the /etc/wpa_supplicant.conf file
+#
+export PATH=/opt/ninjablocks/bin:$PATH
+set -o pipefail
+
+indent() {
+	(
+	"$@"
+	) 2>&1 | sed "s/^/  /" 1>&2
+}
+
+stop() {
+	echo "stopping spheramid..." 1>&2
+	indent service spheramid stop || true
+}
+
+flush-redis() {
+	echo "flushing redis..." 1>&2
+	indent redis-cli flushdb
+}
+
+# don't do this for now
+clear-cloud() {
+	echo "clearing cloud redis..." 1>&2
+	indent /opt/ninjablocks/sphere-go-homecloud/sphere-go-homecloud --clearcloud
+}
+
+reset-credentials() {
+	echo "reset credentials..." 1>&2
+	! test -f /data/etc/opt/ninja/credentials.json || rm /data/etc/opt/ninja/credentials.json
+	sync
+}
+
+reset-wpa() {
+echo "existing contents of wpa_supplicant.conf..."
+	indent cat <<EOF
+# -- start of existing data//etc/wpa_supplicant.conf
+$(cat /data/etc/wpa_supplicant.conf 2>/dev/null)
+# -- end of existing /data/etc/wpa_supplicant.conf
+
+EOF
+	echo "resetting wpa_supplicant..." 1>&2
+	cp /data/etc/wpa_supplicant.conf /data/etc/wpa_supplicant.conf.sphere-reset &&
+	tee /data/etc/wpa_supplicant.conf >/dev/null <<EOF
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+EOF
+	chmod 0600 /data/etc/wpa_supplicant.conf /data/etc/wpa_supplicant.conf.sphere-reset &&
+	indent cat <<EOF
+Your WiFi configuration has been reset.
+
+You will either need to re-run the Ninja Sphere setup process from a compatible smart phone
+or restore the contents of /etc/wpa_supplicant.conf with the previous contents (shown above).
+
+Please note that you may lose WiFi connectivity to the Sphere if you reboot it now.
+EOF
+sync
+}
+
+reset-hostap() {
+
+echo "resetting hostap configuration..." 1>&2
+(
+cat >/data/etc/opt/ninja/setup-assistant.conf <<EOF
+[wireless-host]
+; by default, the SSID will be generated from a hash of the serial and the key will
+; be the default pairing key (completely insecure). for demo networks, set a secure
+; key (and maybe SSID) here.
+; full-network-access specifies whether clients connecting to this AP should have
+; access to all listening services. this is used in demo mode when the key is
+; specified, but not during setup/pairing. without this option all non-setup packets
+; from the network will be DROPPED SILENTLY
+; always-active specifies whether the network should always be made available.
+; by default, it will only be active when needed for pairing.
+;ssid=NinjaSphere
+;key=SomeKey
+;full-network-access
+EOF
+) && chmod 0600 /data/etc/opt/ninja/setup-assistant.conf
+sync
+
+}
+
+reset-zigbee() {
+	echo "resetting zigbee configuration..." 1>&2
+	echo 00: fe 03 26 05 03 01 03 21 | xxd -r > /dev/tty.zigbee
+}
+
+main() {
+	CLEAR_CLOUD=true
+	FLUSH_REDIS=true
+	RESET_WPA=true
+	RESET_HOSTAP=true
+	RESET_CREDENTIALS=true
+	RESET_ZIGBEE=true
+
+	if test "$(whoami)" = "root"; then
+		if test $# -eq 0; then
+cat 1>&2 <<EOF
+usage: sphere-reset [--reset-option]
+
+where [--reset-option] is one of:
+--reset-db
+	Does --reset-redis and issues a --clearcloud on sphere-go-homecloud.
+--reset-redis
+	Issues a flushdb to the local redis database.
+--reset-network
+	Same as --reset-wpa, --reset-hostap
+--reset-zigbee
+	Resets the zigbee non-volatile configuration and the zigbee state.
+--reset-hostap
+	Resets the host ap configuration
+--reset-wpa
+	Resets the wpa supplicant configuration
+--reset-credentials
+	Resets the credentials.json file.
+--reset-setup
+	Same as --reset-redis, --reset-network, --reset-zigbee, --reset-credentials.
+EOF
+			exit 1
+		fi
+
+		while test $# -gt 0; do
+			case "$1" in
+			--reset-db|--clearcloud)
+				# clears redis and the cloud
+				FLUSH_REDIS=flush-redis
+				CLEAR_CLOUD=clear-cloud
+			;;
+			--reset-redis)
+				# flush's local redis database only
+				FLUSH_REDIS=flush-redis
+			;;
+			--reset-network)
+				# does everything but clear the cloud
+				RESET_WPA=reset-wpa
+				RESET_HOSTAP=reset-hostap
+			;;
+			--reset-zigbee)
+				# reset the zigbee device
+				RESET_ZIGBEE=reset-zigbee
+			;;
+			--reset-hostap)
+				# reset the wpa supplicant
+				RESET_HOSTAP=reset-hostap
+			;;
+			--reset-wpa)
+				# reset the wpa supplicant
+				RESET_WPA=reset-wpa
+			;;
+			--reset-credentials)
+				# reset the credentials file
+				RESET_CREDENTIALS=reset-credentials
+			;;
+			--reset-setup)
+				# same as --reset-network, --reset-redis, --reset-credentials, --reset-zigbee
+				FLUSH_REDIS=flush-redis
+				RESET_WPA=reset-wpa
+				RESET_HOSTAP=reset-hostap
+				RESET_CREDENTIALS=reset-credentials
+				RESET_ZIGBEE=reset-zigbee
+			;;
+			*)
+			        echo "unrecognized option: $1" 1>&2
+				exit 1
+			;;
+			esac
+			shift 1
+		done
+
+		stop &&
+		${FLUSH_REDIS} &&
+		${CLEAR_CLOUD} &&
+		${RESET_ZIGBEE} &&
+		${RESET_WPA} &&
+		${RESET_HOSTAP} &&
+		${RESET_CREDENTIALS} &&
+		cat <<EOF
+
+Your sphere has been reset.
+EOF
+	else
+		sudo -u root /opt/ninjablocks/bin/sphere-reset "$@"
+	fi
+}
+
+main "$@"

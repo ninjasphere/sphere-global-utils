@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+NEARBY_GO_CONFIG=$(dirname $0)/sphere-go-config
+WHICH_GO_CONFIG=$(which sphere-go-config 2>/dev/null)
+GOPATH_GO_CONFIG=$GOPATH/bin/sphere-go-config
+
+if test -x "$WHICH_GO_CONFIG"; then
+    GO_CONFIG=$WHICH_GO_CONFIG
+elif test -x "$NEARBY_GO_CONFIG"; then
+    GO_CONFIG=$NEARBY_GO_CONFIG
+elif test -x "$GOPATH_GO_CONFIG"; then
+    GO_CONFIG=$GOPATH_GO_CONFIG
+else
+    echo "cannot find sphere-go-config on path" 1>&2
+fi
+
+"$GO_CONFIG" "$@"

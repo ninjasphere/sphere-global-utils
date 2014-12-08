@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+
+VERSION=nscheduler-v0.0.1
+
+die() {
+	echo "$*" 1>&2
+	exit 1
+}
+
+usage() {
+    sed -e :a -e "s/^\( *\)\./\1 /" -e "ta" <<EOF
+${VERSION}
+
+Performs actions against scheduled tasks.
+
+usage:
+..nscheduler {scheduler-options} -- schedule
+..nscheduler {cancel-options} -- cancel
+
+where:
+..{scheduler-options} are one or more of:
+.....--after {event-spec}
+.....--before {event-spec}
+.....--thing {thing-id}
+.....--on-open {action}
+.....--on-close {action}
+.....--stdout - to generate output on stdout instead of being sent to the scheduler
+.....--stdin - to read the task specification from stdin rather
+.....--{environment}
+.....--{var}={value}
+
+..{cancel-options} is:
+....--task-id {task-id}
+
+..{event-spec} is one of:
+.....timestamp yyyy-mm-dd HH:MM:SS
+.....time-of-day HH:MM:SS
+.....delay HH:MM:SS
+.....dawn
+.....sunrise
+.....sunset
+.....dusk
+
+To use with a remote sphere, create a file called ~/.sphere/remote.json and
+then run napp with a leading --remote option.
+
+..{
+...."mqtt": {
+......"host": "{remote-ip}"
+....},
+...."serial-override": "{remote-sphere-serial}"
+..}
+EOF
+	exit 1
+}
+
+version() {
+    echo $VERSION
+}
+
+config() {
+	local var=$1
+	sphere-config $CONFIG --flat | grep "$var=" | sed "s/^[^=]*=//"
+}
+
+id() {
+	date +%s
+}
+
+message() {
+	local id=$1
+	local method=$2
+	local params=$3 # must be valid json
+	echo "{\"method\": \"$method\", \"params\": [$params], \"jsonrpc\":\"2.0\", \"id\": $id}"
+}
+
+generate() {
+	schedule() {
+cat <<EOF
+{
+	"id": "$(uuid)",
+	"window": {
+		"after": $(event-spec $AFTER),
+		"before": $(event-spec $BEFORE)
+	},
+	"open": [{
+		"type": "thing-action",
+		"thingID": "$THING",
+		"action": "$ON_OPEN"
+	}],
+	"close": [{
+		"type": "thing-action",
+		"thingID": "$THING",
+		"action": "$ON_CLOSE"
+	}]
+}
+EOF
+	}
+
+	coordinates() {
+		local latitude=${1:-0}
+		local longitude=${2:-0}
+		local altitude=${3:-0}
+cat <<EOF
+{
+	"latitude": $latitude,
+	"longitude": $longitude,
+	"altitude": $altitude
+}
+EOF
+	}
+
+	event-envelope() {
+		local params=$1
+cat <<EOF
+{
+	"params":[$params],
+	"jsonrpc":"2.0",
+	"time": $(date "+%s")
+}
+EOF
+	}
+
+	event-spec() {
+		local rule=$1
+		shift 1
+		local param="$*"
+
+		cat <<EOF
+{
+			"rule": "$rule"${param:+,}
+			$(test -n "$param" && echo "\"param\": \"$param\"")
+		}
+EOF
+	}
+
+	uuid() {
+(md5sum <<EOF
+$AFTER
+$BEFORE
+$THING
+$ON_OPEN
+$ON_CLOSE
+$(date)
+$TASK_ID
+EOF
+) | cut -f1 -d' '
+	}
+
+	"$@"
+}
+
+remove-envelope() {
+    sed "s/.*{\"result\"://;s/,\"id\":.*//"
+}
+
+main()
+{
+	CONFIG=
+	AFTER=
+	BEFORE=
+	THING=
+	ON_OPEN=on
+	ON_CLOSE=off
+	TASK_ID=
+	STDOUT=false
+	STDIN=false
+	while true; do
+	case "$1" in
+	--after)
+		shift 1
+		while true; do
+			case "$1" in
+				--*|"")
+					break
+				;;
+				*)
+					AFTER="${AFTER}${AFTER:+ }${1}"
+					shift 1
+				;;
+			esac
+		done
+	;;
+	--before)
+		shift 1
+		while true; do
+			case "$1" in
+				--*|"")
+					break
+				;;
+				*)
+					BEFORE="${BEFORE}${BEFORE:+ }${1}"
+					shift 1
+				;;
+			esac
+		done
+	;;
+	--thing)
+		THING=$2
+		shift 2
+	;;
+	--on-open)
+		ON_OPEN=$2
+		shift 2
+	;;
+	--on-close)
+		ON_CLOSE=$2
+		shift 2
+	;;
+	--task-id)
+		TASK_ID=$2
+		shift 2
+	;;
+	--stdout)
+		STDOUT=true
+		shift 1
+	;;
+	--stdin)
+		STDIN=true
+		shift 1
+	;;
+	--)
+		shift 1
+	;;
+	--*)
+		export CONFIG=${CONFIG}${CONFIG:+ }$1
+		shift 1
+	;;
+	*)
+		break
+	;;
+	esac
+	done
+
+	local siteId=$(config siteId)
+
+	test -n "$siteId" || die "siteId must be configured"
+
+	action=$1
+	case "$action" in
+		schedule)
+			if ! $STDIN; then
+				generate schedule
+			else
+				cat
+			fi | (
+				if $STDOUT; then
+					cat
+				else
+					json=$(cat)
+					napp $CONFIG call "\$site/$(config siteId)/service/scheduler" schedule "$json"
+				fi
+			)
+		;;
+		cancel)
+			test -n "$TASK_ID" || die "you must specify a --task-id option with the cancel command"
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" cancel "\"$TASK_ID\""
+		;;
+		setTimeZone)
+			shift 1
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" setTimeZone "\"$1\""
+		;;
+		setCoordinates)
+			shift 1
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" setCoordinates "$(generate coordinates "$@")"
+		;;
+		status)
+			shift 1
+			test -n "$TASK_ID" || die "you must specify a --task-id option with the cancel command"
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" status "\"$TASK_ID\"" | remove-envelope | sed "s/^\"\(.*\) *\"\$/\1/"
+		;;
+		fetch)
+			shift 1
+			test -n "$TASK_ID" || die "you must specify a --task-id option with the cancel command"
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" fetch "\"$TASK_ID\"" | remove-envelope
+		;;
+		fetchSchedule)
+			shift 1
+			napp $CONFIG call "\$site/$(config siteId)/service/scheduler" fetchSchedule | remove-envelope
+		;;
+		*)
+			usage
+		;;
+	esac
+}
+
+main "$@"

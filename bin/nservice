@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# start and stop ninja modules by sending a message across mqtt
+#
+# FIXME: use exit codes to indicate whether operation actually succeeded or not.
+
+VERSION=nservice-v0.0.2
+PATH="$PATH:$(dirname $0)"
+
+die() {
+	echo "$*" 1>&2
+	exit 1
+}
+
+# this can be replace with exit 0 when nservice eventually changed to check for mqtt replies and set sensible exit codes
+good_exit() {
+	test "${NSERVICE_QUIET}" = true || NSERVICE_QUIET=false
+	if $NSERVICE_QUIET; then
+		exit 0
+	else
+		cat 1>&2 <<EOF
+warning: for now exit code is meaningless. to suppress this code and message in scripts, invoke nservice as 'NSERVICE_QUIET=true nservice {module} {method}'
+EOF
+		# we use this technique so that developers aren't tempted to write 'nservice {module} {method} 2>/dev/null || true' in scripts
+		# which will eventually cause scripts to fail silently when nservice starts generating real exit codes
+		exit 1
+	fi
+}
+
+usage() {
+    sed -e :a -e "s/^\( *\)\./\1 /" -e "ta" <<EOF
+${VERSION}
+
+Sends a command to a module
+
+usage:
+....nservice {options} {module-id} {command}
+
+where {command} is one of:
+....start
+....stop
+
+where {options} are one or more of:
+....-q - to suppress the warning message
+....--listen - to start the topic listener
+....--{environment} - to use the specified environment's configuration
+....--{var}={value} - to override a particular configuration variable
+EOF
+	exit 1
+}
+
+version() {
+    echo $VERSION
+}
+
+config() {
+	local var=$1
+	sphere-config $CONFIG --flat | grep "$var=" | sed "s/^[^=]*=//"
+}
+
+serial()
+{
+	local serial=${NDRIVER_SERIAL:-$(config serial-override)}
+	echo ${serial:-$(sphere-serial)}
+}
+
+topic() {
+	local serial=$1
+
+    echo "\$node/${serial}/module"
+}
+
+id() {
+	date +%s
+}
+
+message() {
+	local params=$1 # must be valid json
+	echo "{\"params\": [$params], \"jsonrpc\":\"2.0\"}"
+}
+
+main()
+{
+	CONFIG=
+	LISTEN=false
+	while true; do
+		case "$1" in
+		-q)
+			NSERVICE_QUIET=true
+			shift 1
+		;;
+		--listen)
+			LISTEN=true
+			shift 1
+		;;
+		--*)
+			export CONFIG=${CONFIG}${CONFIG:+ }$1
+			shift 1
+		;;
+		*)
+			break
+		;;
+		esac
+	done
+
+	local module=$1
+	local cmd=$2
+
+	if test -z "$module" && ! $LISTEN; then
+		usage
+	fi
+
+
+	MQTT_RUNNING=`pgrep mosquitto &> /dev/null; echo $?`
+
+	if [[ $MQTT_RUNNING -ne 0 ]]; then
+		die "MQTT not running or operable, re/start MQTT service and try nservice command again"
+	fi
+
+	local topic=$(topic "$(serial)")
+	local host=$(config mqtt.host)
+	local port=$(config mqtt.port)
+
+	if $LISTEN; then
+		mosquitto_sub -v ${host:+-h} $host ${port:+-p} $port -t "$topic/#" &
+		trap "kill $!" EXIT
+		sleep 1
+	fi
+
+	if test -n "$module"; then
+
+		case "$cmd" in
+			start|stop)
+				message=$(message "\"$module\"")
+			;;
+			*)
+				echo "'$cmd' is not supported" 2>&1
+				usage
+			;;
+		esac
+		if ! mosquitto_pub ${host:+-h} $host ${port:+-p} $port -t "$topic/$cmd" -m "$message"; then
+			die "fatal: mqtt failed with rc=$?"
+		else
+			wait
+			good_exit
+		fi
+	else
+		wait
+	fi
+}
+
+main "$@"

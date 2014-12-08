@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+
+#
+# start and stop ninja modules by sending a message across mqtt
+#
+# FIXME:% use exit codes to indicate whether operation actually succeeded or not.
+
+VERSION=ndriver-v0.0.1
+
+die() {
+	echo "$*" 1>&2
+	exit 1
+}
+
+# this can be replace with exit 0 when NDRIVER eventually changed to check for mqtt replies and set sensible exit codes
+good_exit() {
+	exit 0
+}
+
+usage() {
+    sed -e :a -e "s/^\( *\)\./\1 /" -e "ta" <<EOF
+${VERSION}
+
+Invokes a method on a driver or listens to events it generates.
+
+usage:
+..ndriver {options} call {driver-id} {method} {param}
+....................listen {driver-id}
+....................topic {driver-id}
+
+where:
+..{options}
+.....--{environment}
+.....--{var}={value}
+
+'call' makes an RPC call directly to the driver (but does not listen for a reply)
+
+..{method} {param...} is one of:
+....setLogLevel  [INFO|WARNING|ERROR|DEBUG|TRACE]
+....startPairing {duration}
+....endPairing
+
+'listen' starts mosquitto_sub on the driver's topic
+
+'topic' prints the driver's topic
+
+To use with a remote sphere, create a file called ~/.sphere/remote.json and
+then run ndriver with a leading --remote option.
+
+..{
+...."mqtt": {
+......"host": "{remote-ip}"
+....},
+...."serial-override": "{remote-sphere-serial}"
+..}
+EOF
+	exit 1
+}
+
+version() {
+    echo $VERSION
+}
+
+config() {
+	local var=$1
+	sphere-config $CONFIG --flat | grep "$var=" | sed "s/^[^=]*=//"
+}
+
+serial()
+{
+	local serial=${NDRIVER_SERIAL:-$(config serial-override)}
+	echo ${serial:-$(sphere-serial)}
+}
+
+topic() {
+	local serial=$1
+    local driver=$2
+
+    echo "\$node/${serial}/driver/${driver}"
+}
+
+id() {
+	date +%s
+}
+
+message() {
+	local id=$1
+	local method=$2
+	local params=$3 # must be valid json
+	echo "{\"method\": \"$method\", \"params\": [$params], \"jsonrpc\":\"2.0\", \"id\": $id}"
+}
+
+main()
+{
+	CONFIG=
+	while true; do
+		case "$1" in
+		--*)
+			export CONFIG=${CONFIG}${CONFIG:+ }$1
+			shift 1
+		;;
+		*)
+			break
+		;;
+		esac
+	done
+
+	local cmd=$1
+	local driver=$2
+	local method=$3
+	local param=$4
+
+	test -n "$driver" || usage
+
+	local host=$(config mqtt.host)
+	local port=$(config mqtt.port)
+	local topic=$(topic "$(serial)" "$driver")
+	local id=$(id)
+
+	case "$cmd" in
+	call)
+		case "$method" in
+			start|stop|endPairing)
+				message=$(message $id $method)
+			;;
+			startPairing)
+				test -n "$param" || usage
+				message=$(message $id $method $param)
+			;;
+			setLogLevel|log-level)
+				case "$param" in
+				TRACE|DEBUG|INFO|WARNING|ERROR|CRITICAL)
+					message=$(message $id setLogLevel "\"$param\"")
+				;;
+				*)
+					die "Invalid log level. Use one of: TRACE|DEBUG|INFO|WARNING|ERROR|CRITICAL"
+				;;
+				esac
+			;;
+			*)
+				echo "'$method' is not supported" 2>&1
+				usage
+			;;
+		esac
+		mkfifo /tmp/kill.$$
+		(
+			(mosquitto_sub ${host:+-h} $host ${port:+-p} $port -t "$topic/#" -v & x=$!; read nonce < /tmp/kill.$$; kill $x) | grep --line-buffered "reply.*\"id\":$id" | while read reply
+			do
+				echo $reply
+				echo "" > /tmp/kill.$$
+				exit
+			done
+		) &
+		sleep 1
+		if ! mosquitto_pub ${host:+-h} $host ${port:+-p} $port -t "$topic" -m "$message"; then
+			die "fatal: mqtt failed with rc=$?"
+		else
+		        trap "echo > /tmp/kill.$$" EXIT
+			wait
+			rm /tmp/kill.$$
+			good_exit
+		fi
+	;;
+	listen)
+		mosquitto_sub ${host:+-h} $host ${port:+-p} $port -t "$topic/#" -v
+	;;
+	topic)
+		echo $topic
+	;;
+	version)
+		version
+		exit 0
+	;;
+	*)
+		usage
+	esac
+}
+
+main "$@"
