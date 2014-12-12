@@ -44,7 +44,6 @@ echo "existing contents of wpa_supplicant.conf..."
 ctrl_interface=/var/run/wpa_supplicant
 update_config=1
 EOF
-EOF
 sync
 }
 
