@@ -17,7 +17,7 @@ indent() {
 
 stop() {
 	echo "stopping spheramid..." 1>&2
-	indent service spheramid stop || true
+	indent service sphere-director stop || true
 }
 
 flush-redis() {
