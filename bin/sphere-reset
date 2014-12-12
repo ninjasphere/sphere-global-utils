@@ -39,26 +39,11 @@ reset-credentials() {
 
 reset-wpa() {
 echo "existing contents of wpa_supplicant.conf..."
-	indent cat <<EOF
-# -- start of existing data//etc/wpa_supplicant.conf
-$(cat /data/etc/wpa_supplicant.conf 2>/dev/null)
-# -- end of existing /data/etc/wpa_supplicant.conf
-
-EOF
 	echo "resetting wpa_supplicant..." 1>&2
-	cp /data/etc/wpa_supplicant.conf /data/etc/wpa_supplicant.conf.sphere-reset &&
 	tee /data/etc/wpa_supplicant.conf >/dev/null <<EOF
 ctrl_interface=/var/run/wpa_supplicant
 update_config=1
 EOF
-	chmod 0600 /data/etc/wpa_supplicant.conf /data/etc/wpa_supplicant.conf.sphere-reset &&
-	indent cat <<EOF
-Your WiFi configuration has been reset.
-
-You will either need to re-run the Ninja Sphere setup process from a compatible smart phone
-or restore the contents of /etc/wpa_supplicant.conf with the previous contents (shown above).
-
-Please note that you may lose WiFi connectivity to the Sphere if you reboot it now.
 EOF
 sync
 }
