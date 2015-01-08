@@ -34,6 +34,7 @@ clear-cloud() {
 reset-credentials() {
 	echo "reset credentials..." 1>&2
 	! test -f /data/etc/opt/ninja/credentials.json || rm /data/etc/opt/ninja/credentials.json
+	! test -f /data/etc/opt/ninja/mesh.json || rm /data/etc/opt/ninja/mesh.json
 	sync
 }
 
