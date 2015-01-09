@@ -34,9 +34,8 @@ clear-cloud() {
 reset-credentials() {
 	echo "reset credentials..." 1>&2
 	if test -f /data/etc/opt/ninja/credentials.json; then
-		set -- $(cat /data/etc/opt/ninja/credentials.json | jq '.|.nodeId+" "+.token' | tr -d \")
-		NODE=$1
-		TOKEN=$2
+		NODE=$(/opt/ninjablocks/bin/sphere-serial)
+		TOKEN=$(cat /data/etc/opt/ninja/credentials.json | jq '.|.token' | tr -d \")
 		if test -n "$NODE" && test -n "$TOKEN"; then
 			echo "deleting $NODE from cloud..." 1>&2
 			url="https://api.sphere.ninja/rest/v1/node/${NODE}?access_token=${TOKEN}"
