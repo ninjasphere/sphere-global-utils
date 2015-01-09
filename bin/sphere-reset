@@ -31,17 +31,22 @@ clear-cloud() {
 	indent /opt/ninjablocks/sphere-go-homecloud/sphere-go-homecloud --clearcloud
 }
 
+node-api() {
+	/opt/ninjablocks/bin/sphere-config --cloud-production --flatten | grep cloud.nodes | cut -f2 -d= | sed "s/?.*//"
+}
+
 reset-credentials() {
-	echo "reset credentials..." 1>&2
+	echo "reseting credentials..." 1>&2
 	if test -f /data/etc/opt/ninja/credentials.json; then
 		NODE=$(/opt/ninjablocks/bin/sphere-serial)
 		TOKEN=$(cat /data/etc/opt/ninja/credentials.json | jq '.|.token' | tr -d \")
-		if test -n "$NODE" && test -n "$TOKEN"; then
-			echo "deleting $NODE from cloud..." 1>&2
-			url="https://api.sphere.ninja/rest/v1/node/${NODE}?access_token=${TOKEN}"
+		NODE_API=$(node-api)
+		if test -n "$NODE" && test -n "$TOKEN" && test -n "$NODE_API"; then
+			echo "Deleting $NODE from cloud..." 1>&2
+			url="${NODE_API}/${NODE}?access_token=${TOKEN}"
 			curl -X DELETE -s "$url"
 		else
-			echo "unable to parse node and token from credentials.json. ignoring unpair."
+			echo "Unable to parse node and token from credentials.json. Ignoring unpair."
 		fi
 		rm /data/etc/opt/ninja/credentials.json
 	fi
