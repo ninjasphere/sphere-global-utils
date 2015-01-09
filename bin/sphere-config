@@ -4,6 +4,22 @@ NEARBY_GO_CONFIG=$(dirname $0)/sphere-go-config
 WHICH_GO_CONFIG=$(which sphere-go-config 2>/dev/null)
 GOPATH_GO_CONFIG=$GOPATH/bin/sphere-go-config
 
+# interpolate --cloud-production argument according to value of /etc/ninja-release
+EXTRA_ARG=$(
+	export NINJA_OS_BUILD_TARGET= &&
+	test -f /etc/ninja-release &&
+	. /etc/ninja-release &&
+	TARGET_BRANCH=$(echo $NINJA_OS_BUILD_TARGET | cut -d'-' -f2) &&
+	case "$TARGET_BRANCH" in
+	testing|stable)
+		echo "--cloud-production"
+	;;
+	*)
+		:
+	;;
+	esac
+)
+
 if test -x "$WHICH_GO_CONFIG"; then
     GO_CONFIG=$WHICH_GO_CONFIG
 elif test -x "$NEARBY_GO_CONFIG"; then
@@ -14,4 +30,4 @@ else
     echo "cannot find sphere-go-config on path" 1>&2
 fi
 
-"$GO_CONFIG" "$@"
+"$GO_CONFIG" $EXTRA_ARG "$@"
