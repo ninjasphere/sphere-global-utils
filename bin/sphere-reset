@@ -32,7 +32,7 @@ clear-cloud() {
 }
 
 node-api() {
-	/opt/ninjablocks/bin/sphere-config --cloud-production --flatten | grep cloud.nodes | cut -f2 -d= | sed "s/?.*//"
+	/opt/ninjablocks/bin/sphere-config --flatten | grep cloud.nodes | cut -f2 -d= | sed "s/?.*//"
 }
 
 reset-credentials() {
