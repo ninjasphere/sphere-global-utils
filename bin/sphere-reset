@@ -88,6 +88,10 @@ sync
 
 }
 
+reset-timezone() {
+	:
+}
+
 reset-zigbee() {
 	echo "resetting zigbee configuration..." 1>&2
 	echo 00: fe 03 26 05 03 01 03 21 | xxd -r > /dev/tty.zigbee
@@ -100,6 +104,7 @@ main() {
 	RESET_HOSTAP=true
 	RESET_CREDENTIALS=true
 	RESET_ZIGBEE=true
+	RESET_TIMEZONE=true
 
 	if test "$(whoami)" = "root"; then
 		if test $# -eq 0; then
@@ -122,7 +127,9 @@ where [--reset-option] is one of:
 --reset-credentials
 	Resets the credentials.json file.
 --reset-setup
-	Same as --reset-redis, --reset-network, --reset-zigbee, --reset-credentials.
+	Same as --reset-redis, --reset-network, --reset-zigbee, --reset-credentials, --reset-timezone
+--reset-timezone
+	Reset the timezone to UTC
 EOF
 			exit 1
 		fi
@@ -159,6 +166,9 @@ EOF
 				# reset the credentials file
 				RESET_CREDENTIALS=reset-credentials
 			;;
+			--reset-timezone)
+				RESET_TIMEZONE=reset-timezone
+			;;
 			--reset-setup)
 				# same as --reset-network, --reset-redis, --reset-credentials, --reset-zigbee
 				FLUSH_REDIS=flush-redis
@@ -166,6 +176,7 @@ EOF
 				RESET_HOSTAP=reset-hostap
 				RESET_CREDENTIALS=reset-credentials
 				RESET_ZIGBEE=reset-zigbee
+				RESET_TIMEZONE=reset-timezone
 			;;
 			*)
 			        echo "unrecognized option: $1" 1>&2
@@ -182,6 +193,7 @@ EOF
 		${RESET_WPA} &&
 		${RESET_HOSTAP} &&
 		${RESET_CREDENTIALS} &&
+		${RESET_TIMEZONE} &&
 		cat <<EOF
 
 Your sphere has been reset.
