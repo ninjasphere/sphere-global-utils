@@ -88,8 +88,11 @@ sync
 
 }
 
+# reset the timezone to GMT
 reset-timezone() {
-	:
+	test -f /usr/share/zoneifo/GMT &&
+	! test -e /etc/localtime || rm /etc/localtime &&
+	ln -sf /usr/share/zoneinfo/GMT /etc/localtime
 }
 
 reset-zigbee() {
