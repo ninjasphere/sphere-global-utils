@@ -19,6 +19,7 @@ tar -C /usr/local -xzf go.1.3.3.linux-arm~multiarch-armv7-1.tar.gz
 rm go.1.3.3.linux-arm~multiarch-armv7-1.tar.gz
 mkdir /data/go
 chown ninja:ninja /data/go
+chmod 2775 /data/go
 echo 'export PATH=$PATH:/usr/local/go/bin'>/etc/profile.d/ninja-dev.sh
 echo 'export GOROOT=/data/go'>>/etc/profile.d/ninja-dev.sh
 echo 'export PATH=$PATH:$GOROOT/bin'>>/etc/profile.d/ninja-dev.sh
