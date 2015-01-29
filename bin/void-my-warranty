@@ -6,7 +6,7 @@ echo -n "Hostname: "
 read hostname
 echo $hostname > /etc/hostname
 echo "Enabling universe"
-echo 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty universe'>>/etc/apt/sour$
+echo 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty universe'>>/etc/apt/sources.list
 echo "Installing useful things..."
 apt-get update
 apt-get install mercurial git vim openssh-server mc
