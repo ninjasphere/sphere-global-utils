@@ -54,6 +54,15 @@ serial()
 	echo ${serial:-$(sphere-serial)}
 }
 
+
+get() {
+	local id=$1
+
+	test -n "$id" || die "usage: get thing {id}"
+
+	curl -s http://$host:$port/rest/v1/things/$id | jq .
+}
+
 list() {
 	subset=$1
 	case "$subset" in
@@ -95,6 +104,9 @@ main()
 	case "$cmd" in
 	list)
 		list "$@"
+	;;
+	get)
+		get "$@"
 	;;
 	version)
 		version
