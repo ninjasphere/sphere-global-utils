@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+#
+# start and stop ninja modules by sending a message across mqtt
+#
+# FIXME:% use exit codes to indicate whether operation actually succeeded or not.
+
+VERSION=nthing-v0.0.1
+
+die() {
+	echo "$*" 1>&2
+	exit 1
+}
+
+usage() {
+    sed -e :a -e "s/^\( *\)\./\1 /" -e "ta" <<EOF
+${VERSION}
+
+Provides a command line interface for manipulating things.
+
+usage:
+..nthing {options}..list [ promoted | all ]
+
+where:
+..{options}
+.....--{environment}
+.....--{var}={value}
+
+To use with a remote sphere, create a file called ~/.sphere/remote.json and
+then run ndriver with a leading --remote option.
+
+..{
+...."mqtt": {
+......"host": "{remote-ip}"
+....},
+...."serial-override": "{remote-sphere-serial}"
+..}
+EOF
+	exit 1
+}
+
+version() {
+    echo $VERSION
+}
+
+config() {
+	local var=$1
+	sphere-config $CONFIG --flat | grep "$var=" | sed "s/^[^=]*=//"
+}
+
+serial()
+{
+	local serial=${NTHING_SERIAL:-$(config serial-override)}
+	echo ${serial:-$(sphere-serial)}
+}
+
+list() {
+	subset=$1
+	case "$subset" in
+	promoted)
+		curl -s http://$host:$port/rest/v1/things | jq '.data|.[]|select(.promoted)|.id' | tr -d '"'
+	;;
+	all)
+		curl -s http://$host:$port/rest/v1/things | jq '.data|.[]|.id' | tr -d '"'
+	;;
+	*)
+		die "usage: list all | promoted"
+	;;
+	esac
+
+}
+
+main()
+{
+	CONFIG=
+	while true; do
+		case "$1" in
+		--*)
+			export CONFIG=${CONFIG}${CONFIG:+ }$1
+			shift 1
+		;;
+		*)
+			break
+		;;
+		esac
+	done
+
+	local cmd=$1
+	shift 1
+
+	local host=$(config homecloud.rest.host)
+	local port=$(config homecloud.rest.port)
+	test -n "$host" || host=localhost
+
+	case "$cmd" in
+	list)
+		list "$@"
+	;;
+	version)
+		version
+		exit 0
+	;;
+	*)
+		usage
+	esac
+}
+
+main "$@"
