@@ -5,6 +5,9 @@ die() {
 }
 
 main() {
+
+test "$(whoami)" = "root" || die "must be run as root"
+
 echo "Enabling developer mode. Don't come crying to us if you break something ;)"
 echo ""
 echo -n "Hostname: "
