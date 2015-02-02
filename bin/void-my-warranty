@@ -28,6 +28,7 @@ main() {
 	mkdir /data/go
 	chown ninja:ninja /data/go
 	chmod 2775 /data/go
+	mkdir -p /data/go/src/github.com/ninjasphere
 	echo 'export PATH=$PATH:/usr/local/go/bin'>/etc/profile.d/ninja-dev.sh
 	echo 'export GOROOT=/usr/local/go'>>/etc/profile.d/ninja-dev.sh
 	echo 'export GOPATH=/data/go'>>/etc/profile.d/ninja-dev.sh
