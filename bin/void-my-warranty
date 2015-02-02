@@ -1,4 +1,9 @@
 #!/bin/bash
+die() {
+	echo "$*" 1>&2
+	exit 1
+}
+
 main() {
 echo "Enabling developer mode. Don't come crying to us if you break something ;)"
 echo ""
