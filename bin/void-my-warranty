@@ -17,7 +17,7 @@ main() {
 	echo 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty universe'>>/etc/apt/sources.list
 	echo "Installing useful things..."
 	apt-get update -y
-	apt-get install -y mercurial git vim openssh-server mc
+	apt-get install -y mercurial git vim openssh-server mc build-essential
 	echo "Enabling root SSH login"
 	echo 'PermitRootLogin yes'>>/etc/ssh/sshd_config
 	service ssh restart
