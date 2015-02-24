@@ -4,20 +4,7 @@ die() {
 	exit 1
 }
 
-main() {
-
-	test "$(whoami)" = "root" || die "must be run as root"
-
-	echo "Enabling developer mode. Don't come crying to us if you break something ;)"
-	echo ""
-	echo -n "Hostname: "
-	read hostname
-	echo $hostname > /etc/hostname
-	echo "Enabling universe"
-	echo 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty universe'>>/etc/apt/sources.list
-	echo "Installing useful things..."
-	apt-get update -y
-	apt-get install -y mercurial git vim openssh-server mc build-essential
+phase2() {
 	echo "Enabling root SSH login"
 	echo 'PermitRootLogin yes'>>/etc/ssh/sshd_config
 	service ssh restart
@@ -36,8 +23,30 @@ main() {
 	echo ''
 	sync
 	echo 'Done. You probably want to restart now.'
-
 }
 
-export -f main
-with-rw bash -c main
+phase1() {
+	test "$(whoami)" = "root" || die "must be run as root"
+
+	echo "Enabling developer mode. Don't come crying to us if you break something ;)"
+	echo ""
+	echo -n "Hostname: "
+	read hostname
+	echo $hostname > /etc/hostname
+	echo "Enabling universe"
+	echo 'deb http://ports.ubuntu.com/ubuntu-ports/ trusty universe'>>/etc/apt/sources.list
+	echo "Installing useful things..."
+	apt-get update -y
+	apt-get install -y mercurial git vim openssh-server mc build-essential
+}
+
+main() {
+	with-rw bash -c phase1
+	with-rw bash -c phase2
+}
+
+export -f die
+export -f phase1
+export -f phase2
+
+main
