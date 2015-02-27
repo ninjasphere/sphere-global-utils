@@ -18,6 +18,7 @@ indent() {
 stop() {
 	echo "stopping spheramid..." 1>&2
 	indent service sphere-director stop || true
+	indent service sphere-homecloud stop || true
 }
 
 flush-redis() {
