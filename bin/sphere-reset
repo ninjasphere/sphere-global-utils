@@ -25,10 +25,9 @@ flush-redis() {
 	indent redis-cli flushdb
 }
 
-# don't do this for now
 clear-cloud() {
-	echo "clearing cloud redis..." 1>&2
-	indent /opt/ninjablocks/sphere-go-homecloud/sphere-go-homecloud --clearcloud
+	echo "clearing cloud..." 1>&2
+	indent DEBUG=1 /opt/ninjablocks/sphere-go-homecloud/sphere-go-homecloud --clearcloud
 }
 
 node-api() {
