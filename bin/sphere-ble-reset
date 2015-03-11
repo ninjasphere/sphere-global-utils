@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# sphere-ble-reset
+#   - stops bluetooth
+#   - takes hci0 down
+#   - reloads the btwilink driver
+#   - takes hci0 up
+#   - starts bluetooth
+#  
+# TODO checks the interface got a name and is in a good state.
+#
+
+export PATH=/opt/ninjablocks/bin:$PATH
+set -o pipefail
+
+indent() {
+	(
+	"$@"
+	) 2>&1 | sed "s/^/  /" 1>&2
+}
+
+stop_bluetooth() {
+	echo "stopping bluetooth..." 1>&2
+	indent service bluetooth stop || true
+}
+
+start_bluetooth() {
+	echo "starting bluetooth..." 1>&2
+	indent service bluetooth start || true
+}
+
+hci0_down() {
+	echo "hci0 down..." 1>&2
+	indent hciconfig hci0 down || true
+}
+
+hci0_reset() {
+	echo "hci0 reset..." 1>&2
+	indent hciconfig hci0 reset || true
+}
+
+reload_wilink_driver() {
+	echo "reload driver..." 1>&2
+	indent rmmod btwilink || true
+	indent modprobe btwilink || true
+}
+
+main() {
+
+	if test "$(whoami)" = "root"; then
+		stop_bluetooth
+		hci0_down
+		reload_wilink_driver
+		hci0_reset
+		start_bluetooth
+	else
+		sudo -u root /opt/ninjablocks/bin/sphere-ble-reset "$@"
+	fi
+}
+
+main "$@"
