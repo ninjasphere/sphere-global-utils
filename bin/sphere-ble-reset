@@ -1,60 +1,110 @@
-#!/usr/bin/env bash
-#
-# sphere-ble-reset
-#   - stops bluetooth
-#   - takes hci0 down
-#   - reloads the btwilink driver
-#   - takes hci0 up
-#   - starts bluetooth
-#  
-# TODO checks the interface got a name and is in a good state.
+#!/bin/bash
 #
 
 export PATH=/opt/ninjablocks/bin:$PATH
 set -o pipefail
 
-indent() {
-	(
-	"$@"
-	) 2>&1 | sed "s/^/  /" 1>&2
+usage() {
+	cat <<EOF
+sphere-ble-reset {command}
+
+where {command} is one of:
+
+	signal-reset
+		Issues an initctl emit to restart the entire BLE stack.
+
+	start
+		Starts the entire bluetooth stack.
+
+	partial-start
+		Starts the entire bluetooth stack upto, but not including the applications
+
+	stop
+		Stops the entire bluetooth stack.
+
+	status
+		Reports whether the stack is STARTED or in some other state BAD.
+
+	wait
+		Wait until the stack is STARTED.
+
+EOF
 }
 
-stop_bluetooth() {
-	echo "stopping bluetooth..." 1>&2
-	indent service bluetooth stop || true
+stop() {
+	nservice -q driver-ble-combined stop
+	service sphere-setup-assistant stop
+	service bluetooth stop
+	hciconfig hci0 down 1>&2
+	rmmod btwilink
+	service uim-sysfs stop
+	true
 }
 
-start_bluetooth() {
-	echo "starting bluetooth..." 1>&2
-	indent service bluetooth start || true
+partial-start() {
+	service uim-sysfs start
+	modprobe btwilink
+	hciconfig hci0 up
+	service bluetooth start
 }
 
-hci0_down() {
-	echo "hci0 down..." 1>&2
-	indent hciconfig hci0 down || true
+start() {
+	partial-start
+	_wait
+	service sphere-setup-assistant start
+	nservice -q driver-ble-combined start
 }
 
-hci0_reset() {
-	echo "hci0 reset..." 1>&2
-	indent hciconfig hci0 reset || true
+status() {
+	local count=$(hciconfig -a 2>/dev/null | egrep -c "Name: 'ninjasphere-0'|UP RUNNING PSCAN")
+	if test "$count" -eq 2; then
+		echo STARTED
+		true
+	else
+		echo BAD
+		hciconfig -a 1>&2
+		false
+	fi
 }
 
-reload_wilink_driver() {
-	echo "reload driver..." 1>&2
-	indent rmmod btwilink || true
-	indent modprobe btwilink || true
+_wait() {
+	while ! status 1>&2; do
+		sleep 1
+	done
+	true
 }
 
 main() {
 
 	if test "$(whoami)" = "root"; then
-		stop_bluetooth
-		hci0_down
-		reload_wilink_driver
-		hci0_reset
-		start_bluetooth
+		cmd=$1
+		shift 1
+
+		case "$cmd" in
+		signal-reset)
+			initctl emit ble-reset-required
+		;;
+		stop)
+			stop "$@"
+		;;
+		start)
+			start "$@"
+		;;
+		partial-start)
+			partial-start "$@"
+		;;
+		status)
+			status "$@"
+		;;
+		wait)
+			_wait "$@"
+		;;
+		*)
+			usage
+		;;
+		esac
 	else
-		sudo -u root /opt/ninjablocks/bin/sphere-ble-reset "$@"
+		sudo -u root $0 "$@"
 	fi
 }
 
