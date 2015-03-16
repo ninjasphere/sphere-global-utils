@@ -1,0 +1,10 @@
+#!/bin/bash
+IMAGE=$1
+HOST=${2:-localhost}
+mosquitto_pub -h $HOST -t '$home/led-controller' -m '{"method":"disableControl","params":[],"id":12345,"jsonrpc":"2.0"}'
+mosquitto_pub -h $HOST -t '$home/led-controller' -m "{\"method\":\"displayIcon\",\"params\":[{\"icon\":\"$IMAGE\"}],\"id\":12345,\"jsonrpc\":\"2.0\"}"
+reenable() {
+  sleep 10s
+  mosquitto_pub -h $HOST -t '$home/led-controller' -m '{"method":"enableControl","params":[],"id":12345,"jsonrpc":"2.0"}'
+}
+reenable &
