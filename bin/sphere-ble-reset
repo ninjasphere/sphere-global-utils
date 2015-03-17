@@ -19,6 +19,9 @@ where {command} is one of:
 	partial-start
 		Starts the entire bluetooth stack upto, but not including the applications
 
+	partial-stop
+		Stops the entite bluetooth stack, except the applications.
+
 	stop
 		Stops the entire bluetooth stack.
 
@@ -34,6 +37,11 @@ EOF
 stop() {
 	nservice -q driver-ble-combined stop
 	service sphere-setup-assistant stop
+	partial-stop
+	true
+}
+
+partial-stop() {
 	service bluetooth stop
 	hciconfig hci0 down 1>&2
 	rmmod btwilink
@@ -93,8 +101,16 @@ main() {
 		partial-start)
 			partial-start "$@"
 		;;
+		partial-stop)
+			partial-stop "$@"
+		;;
 		status)
 			status "$@"
+		;;
+		ble-startup)
+			# called when the ble driver starts up
+			partial-stop
+			partial-start
 		;;
 		wait)
 			_wait "$@"
