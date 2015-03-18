@@ -40,6 +40,8 @@ phase1() {
 	apt-get install -y mercurial git vim openssh-server mc build-essential
 }
 
+umask 002
+
 main() {
 	with-rw bash -c phase1
 	with-rw bash -c phase2
