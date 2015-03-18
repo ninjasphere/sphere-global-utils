@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # sphere-reset
 #   - stops the spheramid service
