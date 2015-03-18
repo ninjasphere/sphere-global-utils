@@ -52,4 +52,8 @@ export -f die
 export -f phase1
 export -f phase2
 
-main
+if test "$(whoami)" != 'root'; then
+	sudo with-rw /opt/ninjablocks/bin/void-my-warranty "$@"
+else
+	main "$@"
+fi
