@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NEARBY_GO_CONFIG=$(dirname $0)/sphere-go-config
+NEARBY_GO_CONFIG=$(dirname "$BASH_SOURCE[0]")/sphere-go-config
 WHICH_GO_CONFIG=$(which sphere-go-config 2>/dev/null)
 GOPATH_GO_CONFIG=$GOPATH/bin/sphere-go-config
 

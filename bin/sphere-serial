@@ -2,7 +2,7 @@
 
 export PATH=$PATH:/opt/ninjablocks/bin
 
-NEARBY_GO_SERIAL=$(dirname $0)/sphere-go-serial
+NEARBY_GO_SERIAL=$(dirname "$BASH_SOURCE[0]")/sphere-go-serial
 WHICH_GO_SERIAL=$(which sphere-go-serial 2>/dev/null)
 GOPATH_GO_SERIAL=$GOPATH/bin/sphere-go-serial
 
