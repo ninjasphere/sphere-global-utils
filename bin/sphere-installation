@@ -1,0 +1,7 @@
+#!/bin/bash
+if test -z "$sphere_installDirectory"; then
+	installation=$(cd "$(dirname "$0")"/..; pwd -P)
+	echo "${installation}${1:+/}$1"
+else
+	echo "$sphere_installDirectory"
+fi
