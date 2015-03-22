@@ -1,33 +1,23 @@
 #!/bin/bash
 
-NEARBY_GO_CONFIG=$(dirname $0)/sphere-go-config
-WHICH_GO_CONFIG=$(which sphere-go-config 2>/dev/null)
-GOPATH_GO_CONFIG=$GOPATH/bin/sphere-go-config
+PATH=$PATH:$(cd "$(dirname "$0")"; pwd -P)
+export sphere_installDirectory=${sphere_installDirectory:-$(sphere-installation)}
 
 # interpolate --cloud-production argument according to value of /etc/ninja-release
-EXTRA_ARG=$(
-	export NINJA_OS_BUILD_TARGET= &&
+TARGET_BRANCH=$(
+	export NINJA_OS_BUILD_TARGET=  &&
 	test -f /etc/ninja-release &&
 	. /etc/ninja-release &&
-	TARGET_BRANCH=$(echo $NINJA_OS_BUILD_TARGET | cut -d'-' -f2) &&
-	case "$TARGET_BRANCH" in
-	testing|stable)
-		echo "--cloud-production"
-	;;
-	*)
-		:
-	;;
-	esac
+	echo $NINJA_OS_BUILD_TARGET | cut -d'-' -f2
 )
 
-if test -x "$WHICH_GO_CONFIG"; then
-    GO_CONFIG=$WHICH_GO_CONFIG
-elif test -x "$NEARBY_GO_CONFIG"; then
-    GO_CONFIG=$NEARBY_GO_CONFIG
-elif test -x "$GOPATH_GO_CONFIG"; then
-    GO_CONFIG=$GOPATH_GO_CONFIG
-else
-    echo "cannot find sphere-go-config on path" 1>&2
-fi
+case "$TARGET_BRANCH" in
+testing|stable)
+	CLOUD_ARG="--cloud-production"
+;;
+*)
+	CLOUD_ARG=""
+;;
+esac
 
-"$GO_CONFIG" $EXTRA_ARG "$@"
+sphere-go-config $CLOUD_ARG "$@"

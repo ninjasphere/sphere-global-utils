@@ -1,23 +1,12 @@
 #!/bin/bash
 
-export PATH=$PATH:/opt/ninjablocks/bin
-
-NEARBY_GO_SERIAL=$(dirname $0)/sphere-go-serial
-WHICH_GO_SERIAL=$(which sphere-go-serial 2>/dev/null)
-GOPATH_GO_SERIAL=$GOPATH/bin/sphere-go-serial
+PATH=$PATH:$(cd "$(dirname "$0")"; pwd -P)
+export sphere_installDirectory=${sphere_installDirectory:-$(sphere-installation)}
 
 SERIAL_OVERRIDE=$(sphere-config --flat "$@" | sed -n s/^serial.override=//p)
 if test -n "$SERIAL_OVERRIDE"; then
 	echo -n "$SERIAL_OVERRIDE"
 	exit 0
-elif test -x "$WHICH_GO_SERIAL"; then
-    GO_SERIAL=$WHICH_GO_SERIAL
-elif test -x "$NEARBY_GO_SERIAL"; then
-    GO_SERIAL=$NEARBY_GO_SERIAL
-elif test -x "$GOPATH_GO_SERIAL"; then
-    GO_SERIAL=$GOPATH_GO_SERIAL
 else
-    echo "cannot find sphere-go-serial on path" 1>&2
+	sphere-go-serial "$@"
 fi
-
-"$GO_SERIAL" "$@"
