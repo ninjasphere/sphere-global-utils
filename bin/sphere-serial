@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PATH=$PATH:$(cd "$(dirname "$0")"; pwd -P)
+PATH=$(cd "$(dirname "$0")"; pwd -P):$PATH
 export sphere_installDirectory=${sphere_installDirectory:-$(sphere-installation)}
 
 SERIAL_OVERRIDE=$(sphere-config --flat "$@" | sed -n s/^serial.override=//p)
