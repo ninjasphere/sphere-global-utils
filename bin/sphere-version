@@ -1,0 +1,4 @@
+#!/bin/bash
+OUTPUT=$(dpkg-query -s ninjasphere | sed -n "s/^Version: *//p")
+echo $OUTPUT
+test -n "$OUTPUT"
