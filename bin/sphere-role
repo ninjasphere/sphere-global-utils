@@ -12,7 +12,7 @@ usage() {
 }
 
 master() {
-	sphere-config | jq -r .masterNodeId
+	sphere-config | jq -r 'if .masterNodeId then .masterNodeId else "" end'
 }
 
 role() {
