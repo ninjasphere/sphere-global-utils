@@ -50,7 +50,9 @@ reset-credentials() {
 		fi
 		rm /data/etc/opt/ninja/credentials.json
 	fi
-	! test -f /data/etc/opt/ninja/mesh.json || rm /data/etc/opt/ninja/mesh.json
+	for f in mesh.json pairing-override.json; do
+		! test -f /data/etc/opt/ninja/$f || rm /data/etc/opt/ninja/$f
+	done
 	sync
 }
 
