@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# helper script for publishing component status messages to the local bus.
+
+die() {
+    echo "$*" 1>&2
+    exit 1
+}
+
+unixtime() {
+
+    case "$(uname)" in
+    Darwin)
+        X=$(python -c 'import time; print time.time()'); X=${X%.*}
+        echo $X
+    ;;
+    *)
+        date "%+s"
+    ;;
+    esac
+}
+
+main() {
+    local component=$1
+    local code=$2
+    local color=$3
+    
+    shift 3
+    
+    test -n "$color" || die "usage: sphere-component-status component code color message"
+
+    test "$color" = "-" && color="green"
+
+    serial=${SPHERE_SERIAL:-$(sphere-serial)}
+    topic="\$device/$serial/component/$component/event/status"
+    body=$(jq -c . <<EOF
+{
+  "params": [
+    {
+      "Code": $(echo "$code" | jq -R .),
+      "Color": $(echo "$color" | jq -R .),
+      "Message": $(echo "$*" | jq -R .)
+    }
+  ],
+  "jsonrpc":"2.0",
+  "time":$(unixtime)000
+}
+EOF
+    )
+    echo "$body" | mosquitto_pub -t "$topic" -s 
+}
+
+main "$@"
