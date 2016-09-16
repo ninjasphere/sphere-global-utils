@@ -15,7 +15,7 @@ unixtime() {
         echo $X
     ;;
     *)
-        date "%+s"
+        date "+%s"
     ;;
     esac
 }
