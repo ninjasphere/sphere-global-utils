@@ -1,4 +1,5 @@
 #!/bin/bash
-OUTPUT=$(dpkg-query -s ninjasphere | sed -n "s/^Version: *//p")
+META=$(sphere-config | jq -r '.["top-level-meta-package"]')
+OUTPUT=$(dpkg-query -s ${META:-ninjasphere} | sed -n "s/^Version: *//p")
 echo $OUTPUT
 test -n "$OUTPUT"
